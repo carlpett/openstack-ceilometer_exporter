@@ -331,11 +331,12 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.Serv
 		lastScrape: time.Now().UTC().Add(time.Duration(-5) * time.Minute),
 	}
 
+	limit := 200 // TBD
 	query := meters.ShowOpts{
 		QueryField: "timestamp",
 		QueryOp:    "gt",
 		QueryValue: scraper.lastScrape.Format("2006-01-02T15:04:05"),
-		Limit:      200, // TBD
+		Limit:      limit,
 	}
 	log.Debugf("Querying for %v: %v", resourceLabel, query)
 	results := meters.Show(client, resourceLabel, query)
@@ -345,9 +346,17 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.Serv
 		result <- false
 		return
 	}
-	log.Infof("Query for %s returned %d results", resourceLabel, len(data))
+	if len(data) == 0 {
+		log.Warnf("Query for %v returned no results!", resourceLabel)
+		result <- false // TODO: Maybe not to be treated as failure?
+		return
+	}
+	if len(data) == limit {
+		log.Warnf("Query for %v returned max number of results (%d), data may be truncated", resourceLabel, limit)
+	}
+	initialLen := len(data)
 	data = deduplicate(data)
-	log.Infof("%s has %d results after deduplication", resourceLabel, len(data))
+	log.Debugf("Query for %s returned %d results, %d remain after deduplication", resourceLabel, initialLen, len(data))
 
 	for _, sample := range data {
 		ch <- sampleToMetric(&sample, metric)
