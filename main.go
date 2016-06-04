@@ -16,7 +16,6 @@ import (
 
 /*
   TODOs:
-  - Parallelize
   - Flags
   - Logging
   - Split metric types (HW/Resources/...) (?)
@@ -24,6 +23,8 @@ import (
   - Scrape-stats (scrape time, success, etc) (split scrape time per metric?)
   - Multiple scrapers
   - Split to multiple files
+  - Calculated metrics (eg count of rules in firewall policy)
+  - Timeout?
 */
 
 /*
@@ -194,6 +195,16 @@ func NewCeilometerCollector() *ceilometerCollector {
 					}
 				},
 			},
+			// Network
+			"network.services.firewall.policy": {
+				desc: prometheus.NewDesc("openstack_ceilometer_firewall_policy", "Firewall policy", []string{"instance_id", "instance_name"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceId,
+						sample.ResourceMetadata["display_name"],
+					}
+				},
+			},
 			// Usage
 			"instance": {
 				desc: prometheus.NewDesc("openstack_ceilometer_instance", "Instances", []string{"instance_id", "instance_name", "flavor"}, nil),
@@ -227,12 +238,22 @@ func (c *ceilometerCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *ceilometerCollector) Collect(ch chan<- prometheus.Metric) {
+	t := time.Now()
+	result := make(chan bool)
+	defer close(result)
 	for resourceLabel, metric := range c.metrics {
-		scrape(resourceLabel, metric, c.client, ch)
+		// TODO: Multiple results: ok/notok, time spent, #rows. Labeled per resourceLabel
+		go scrape(resourceLabel, metric, c.client, ch, result)
 	}
+	for _ = range c.metrics {
+		<-result
+	}
+
+	desc := prometheus.NewDesc("openstack_ceilometer_scrape_duration_ns", "Time taken for scrape", nil, nil)
+	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(time.Since(t).Nanoseconds()))
 }
 
-func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.ServiceClient, ch chan<- prometheus.Metric) {
+func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.ServiceClient, ch chan<- prometheus.Metric, result chan<- bool) {
 	scraper := Scraper{
 		id:         "test",
 		lastScrape: time.Now().UTC().Add(time.Duration(-5) * time.Minute),
@@ -248,6 +269,7 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.Serv
 	data, err := results.Extract()
 	if err != nil {
 		log.Warnf("Failed to scrape Ceilometer resource %q for client %v", metric, scraper.id)
+		result <- false
 		return
 	}
 	log.Infof("Query returned %d results", len(data))
@@ -257,6 +279,8 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.Serv
 	for _, sample := range data {
 		ch <- sampleToMetric(&sample, metric)
 	}
+
+	result <- true
 }
 
 func deduplicate(samples []meters.OldSample) []meters.OldSample {
@@ -283,7 +307,6 @@ func sampleToMetric(sample *meters.OldSample, metric ceilometerMetric) prometheu
 		valueType = prometheus.UntypedValue
 	}
 
-	// TODO: Map units? (eg nanosec->millisec?)
 	value := float64(sample.Volume)
 
 	return prometheus.MustNewConstMetric(metric.desc, valueType, value, metric.extractLabels(sample)...)
