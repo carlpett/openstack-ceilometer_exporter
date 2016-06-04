@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/DSpeichert/gophercloud/openstack"
@@ -195,13 +196,84 @@ func NewCeilometerCollector() *ceilometerCollector {
 					}
 				},
 			},
-			// Network
-			"network.services.firewall.policy": {
-				desc: prometheus.NewDesc("openstack_ceilometer_firewall_policy", "Firewall policy", []string{"instance_id", "instance_name"}, nil),
+			"memory": {
+				desc: prometheus.NewDesc("openstack_ceilometer_memory", "Memory allocation", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
 						sample.ResourceMetadata["display_name"],
+					}
+				},
+			},
+			"memory.resident": {
+				desc: prometheus.NewDesc("openstack_ceilometer_memory_resident", "Resident memory utilization", []string{"instance_id", "instance_name"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceId,
+						sample.ResourceMetadata["display_name"],
+					}
+				},
+			},
+
+			// Network
+			"network.services.firewall.policy": {
+				desc: prometheus.NewDesc("openstack_ceilometer_firewall_policy", "Firewall policy", []string{"name"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceMetadata["name"],
+					}
+				},
+			},
+			"network.services.lb.vip": {
+				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool", "Load balancer pool", []string{"name"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceMetadata["name"],
+					}
+				},
+			},
+			"network.services.lb.pool": {
+				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_vip", "Load balancer virtual IP", []string{"name"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceMetadata["name"],
+					}
+				},
+			},
+			"network.services.lb.member": {
+				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_member", "Load balancer pool member", []string{"status", "pool_id"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceMetadata["status"],
+						// TODO: Add lookup-table for pool-id -> name
+						sample.ResourceMetadata["pool_id"],
+					}
+				},
+			},
+			"network.services.lb.incoming.bytes": {
+				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_bytes_in", "Load balancer pool bytes-in", []string{"pool_id"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						// TODO: lookup-table
+						sample.ResourceId,
+					}
+				},
+			},
+			"network.services.lb.active.connections": {
+				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_active_connections", "Load balancer pool active connections", []string{"pool_id"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						// TODO: lookup-table
+						sample.ResourceId,
+					}
+				},
+			},
+			// Swift
+			"storage.containers.objects": {
+				desc: prometheus.NewDesc("openstack_ceilometer_swift_objects", "Swift container objects", []string{"container_id"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						strings.SplitN(sample.ResourceId, "/", 2)[1],
 					}
 				},
 			},
