@@ -18,7 +18,6 @@ import (
 /*
   TODOs:
   - Flags
-  - Logging
   - Split metric types (HW/Resources/...) (?)
   - Support for meter/foo/statistics for some types?
   - Scrape-stats (scrape time, success, etc) (split scrape time per metric?)
@@ -143,6 +142,7 @@ func main() {
              </body>
              </html>`))
 	})
+	log.Infof("Starting metric server on %v%v", *bindAddr, *metricsPath)
 	log.Fatal(http.ListenAndServe(*bindAddr, nil))
 }
 
@@ -337,6 +337,7 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.Serv
 		QueryValue: scraper.lastScrape.Format("2006-01-02T15:04:05"),
 		Limit:      200, // TBD
 	}
+	log.Debugf("Querying for %v: %v", resourceLabel, query)
 	results := meters.Show(client, resourceLabel, query)
 	data, err := results.Extract()
 	if err != nil {
@@ -344,9 +345,9 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.Serv
 		result <- false
 		return
 	}
-	log.Infof("Query returned %d results", len(data))
+	log.Infof("Query for %s returned %d results", resourceLabel, len(data))
 	data = deduplicate(data)
-	log.Infof("%d results after deduplication", len(data))
+	log.Infof("%s has %d results after deduplication", resourceLabel, len(data))
 
 	for _, sample := range data {
 		ch <- sampleToMetric(&sample, metric)
@@ -376,6 +377,7 @@ func sampleToMetric(sample *meters.OldSample, metric ceilometerMetric) prometheu
 		valueType = prometheus.CounterValue
 
 	default:
+		log.Debugf("Unknown sample type %v in query for %v", sample.Type, sample.Name)
 		valueType = prometheus.UntypedValue
 	}
 
