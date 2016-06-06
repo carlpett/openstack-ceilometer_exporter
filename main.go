@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/DSpeichert/gophercloud/openstack"
 	"github.com/DSpeichert/gophercloud/openstack/telemetry/v2/meters"
 	upstream "github.com/rackspace/gophercloud"
+	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/lbaas/pools"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -150,6 +152,45 @@ type Scraper struct {
 	lastScrape time.Time
 }
 
+type LookupService struct {
+	poolNameCache map[string]string
+	networkClient *upstream.ServiceClient
+}
+
+func NewLookupService(provider *upstream.ProviderClient) LookupService {
+	networkClient, err := openstack.NewNetworkV2(provider, upstream.EndpointOpts{})
+	if err != nil {
+		panic(err)
+	}
+
+	return LookupService{
+		networkClient: networkClient,
+		poolNameCache: make(map[string]string),
+	}
+}
+
+func (this *LookupService) lookupPool(poolId string) string {
+	if poolId == "" {
+		return "UNKNOWN"
+	}
+
+	var name string
+	if name, ok := this.poolNameCache[poolId]; ok {
+		return name
+	}
+
+	result := pools.Get(this.networkClient, poolId)
+	pool, err := result.Extract()
+	if err != nil {
+		log.Warnf("Failure while looking up pool id %q", poolId)
+		name = "UNKNOWN"
+	} else {
+		name = pool.Name
+	}
+	this.poolNameCache[poolId] = name
+	return name
+}
+
 func NewCeilometerCollector() *ceilometerCollector {
 	opts, err := openstack.AuthOptionsFromEnv()
 	if err != nil {
@@ -164,6 +205,8 @@ func NewCeilometerCollector() *ceilometerCollector {
 	if err != nil {
 		panic(err)
 	}
+
+	lookupSvc := NewLookupService(provider)
 
 	return &ceilometerCollector{
 		metrics: map[string]ceilometerMetric{
@@ -240,30 +283,28 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.services.lb.member": {
-				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_member", "Load balancer pool member", []string{"status", "pool_id"}, nil),
+				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_member", "Load balancer pool member", []string{"member", "status", "pool"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
+						fmt.Sprintf("%s:%s", sample.ResourceMetadata["address"], sample.ResourceMetadata["protocol_port"]),
 						sample.ResourceMetadata["status"],
-						// TODO: Add lookup-table for pool-id -> name
-						sample.ResourceMetadata["pool_id"],
+						lookupSvc.lookupPool(sample.ResourceMetadata["pool_id"]),
 					}
 				},
 			},
 			"network.services.lb.incoming.bytes": {
-				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_bytes_in", "Load balancer pool bytes-in", []string{"pool_id"}, nil),
+				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_bytes_in", "Load balancer pool bytes-in", []string{"pool"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
-						// TODO: lookup-table
-						sample.ResourceId,
+						lookupSvc.lookupPool(sample.ResourceId),
 					}
 				},
 			},
 			"network.services.lb.active.connections": {
-				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_active_connections", "Load balancer pool active connections", []string{"pool_id"}, nil),
+				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_active_connections", "Load balancer pool active connections", []string{"pool"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
-						// TODO: lookup-table
-						sample.ResourceId,
+						lookupSvc.lookupPool(sample.ResourceId),
 					}
 				},
 			},
