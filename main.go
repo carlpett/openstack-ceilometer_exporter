@@ -379,7 +379,7 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.Serv
 	results := meters.Show(client, resourceLabel, query)
 	data, err := results.Extract()
 	if err != nil {
-		log.Warnf("Failed to scrape Ceilometer resource %q for client %v", metric, scraper.id)
+		log.Warnf("Failed to scrape Ceilometer resource %q for client %v", resourceLabel, scraper.id)
 		return
 	}
 	if len(data) == 0 {
