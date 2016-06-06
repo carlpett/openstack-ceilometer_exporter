@@ -20,7 +20,6 @@ import (
   - Flags
   - Split metric types (HW/Resources/...) (?)
   - Support for meter/foo/statistics for some types?
-  - Scrape-stats (scrape time, success, etc) (split scrape time per metric?)
   - Multiple scrapers
   - Split to multiple files
   - Calculated metrics (eg count of rules in firewall policy)
@@ -289,13 +288,21 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 		},
+		metaMetrics: map[string]*prometheus.Desc{
+			"scrapeSuccess":    prometheus.NewDesc("openstack_ceilometer_metric_scrape_success", "Indicates if the metric was successfully scraped", []string{"metric"}, nil),
+			"scrapeDuration":   prometheus.NewDesc("openstack_ceilometer_metric_scrape_duration_ns", "The time taken to scrape the metric", []string{"metric"}, nil),
+			"scrapeResultSize": prometheus.NewDesc("openstack_ceilometer_metric_scrape_result_size", "Number of results returned by the metric query", []string{"metric"}, nil),
+
+			"totalScrapeDuration": prometheus.NewDesc("openstack_ceilometer_total_scrape_duration_ns", "Time taken for entire scrape", nil, nil),
+		},
 		client: client,
 	}
 }
 
 type ceilometerCollector struct {
-	client  *upstream.ServiceClient
-	metrics map[string]ceilometerMetric
+	client      *upstream.ServiceClient
+	metrics     map[string]ceilometerMetric
+	metaMetrics map[string]*prometheus.Desc
 }
 type ceilometerMetric struct {
 	desc          *prometheus.Desc
@@ -307,29 +314,59 @@ func (c *ceilometerCollector) Describe(ch chan<- *prometheus.Desc) {
 	for _, metric := range c.metrics {
 		ch <- metric.desc
 	}
+	for _, metric := range c.metaMetrics {
+		ch <- metric
+	}
 }
 
 func (c *ceilometerCollector) Collect(ch chan<- prometheus.Metric) {
 	t := time.Now()
-	result := make(chan bool)
+	result := make(chan scrapeStats)
 	defer close(result)
 	for resourceLabel, metric := range c.metrics {
-		// TODO: Multiple results: ok/notok, time spent, #rows. Labeled per resourceLabel
 		go scrape(resourceLabel, metric, c.client, ch, result)
 	}
 	for _ = range c.metrics {
-		<-result
+		scrapeStats := <-result
+		ch <- prometheus.MustNewConstMetric(c.metaMetrics["scrapeSuccess"], prometheus.GaugeValue, btof(scrapeStats.success), scrapeStats.resourceLabel)
+		ch <- prometheus.MustNewConstMetric(c.metaMetrics["scrapeDuration"], prometheus.GaugeValue, float64(scrapeStats.duration.Nanoseconds()), scrapeStats.resourceLabel)
+		ch <- prometheus.MustNewConstMetric(c.metaMetrics["scrapeResultSize"], prometheus.GaugeValue, float64(scrapeStats.resultSize), scrapeStats.resourceLabel)
 	}
 
-	desc := prometheus.NewDesc("openstack_ceilometer_scrape_duration_ns", "Time taken for scrape", nil, nil)
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(time.Since(t).Nanoseconds()))
+	ch <- prometheus.MustNewConstMetric(c.metaMetrics["totalScrapeDuration"], prometheus.GaugeValue, float64(time.Since(t).Nanoseconds()))
 }
 
-func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.ServiceClient, ch chan<- prometheus.Metric, result chan<- bool) {
+func btof(b bool) float64 {
+	if b {
+		return 1.0
+	} else {
+		return 0.0
+	}
+}
+
+type scrapeStats struct {
+	resourceLabel string
+	success       bool
+	duration      time.Duration
+	resultSize    int
+}
+
+func sendStats(ch chan<- scrapeStats, stats *scrapeStats) {
+	ch <- *stats
+}
+func registerDuration(start time.Time, stats *scrapeStats) {
+	stats.duration = time.Since(start)
+}
+
+func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.ServiceClient, ch chan<- prometheus.Metric, result chan<- scrapeStats) {
 	scraper := Scraper{
 		id:         "test",
 		lastScrape: time.Now().UTC().Add(time.Duration(-5) * time.Minute),
 	}
+	t := time.Now()
+	stats := scrapeStats{resourceLabel: resourceLabel}
+	defer registerDuration(t, &stats)
+	defer sendStats(result, &stats)
 
 	limit := 200 // TBD
 	query := meters.ShowOpts{
@@ -343,12 +380,11 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.Serv
 	data, err := results.Extract()
 	if err != nil {
 		log.Warnf("Failed to scrape Ceilometer resource %q for client %v", metric, scraper.id)
-		result <- false
 		return
 	}
 	if len(data) == 0 {
 		log.Warnf("Query for %v returned no results!", resourceLabel)
-		result <- false // TODO: Maybe not to be treated as failure?
+		stats.success = true // The query itself was successful, even though no results were produced
 		return
 	}
 	if len(data) == limit {
@@ -357,12 +393,13 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.Serv
 	initialLen := len(data)
 	data = deduplicate(data)
 	log.Debugf("Query for %s returned %d results, %d remain after deduplication", resourceLabel, initialLen, len(data))
+	stats.resultSize = len(data)
 
 	for _, sample := range data {
 		ch <- sampleToMetric(&sample, metric)
 	}
 
-	result <- true
+	stats.success = true
 }
 
 func deduplicate(samples []meters.OldSample) []meters.OldSample {
