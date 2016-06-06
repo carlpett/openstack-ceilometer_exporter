@@ -406,8 +406,8 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.Serv
 	}
 	t := time.Now()
 	stats := scrapeStats{resourceLabel: resourceLabel}
-	defer registerDuration(t, &stats)
 	defer sendStats(result, &stats)
+	defer registerDuration(t, &stats)
 
 	limit := 200 // TBD
 	query := meters.ShowOpts{
