@@ -9,7 +9,7 @@ import (
 
 	"github.com/DSpeichert/gophercloud/openstack"
 	"github.com/DSpeichert/gophercloud/openstack/telemetry/v2/meters"
-	upstream "github.com/rackspace/gophercloud"
+	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/servers"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/lbaas/pools"
 
@@ -155,19 +155,19 @@ type Scraper struct {
 
 type LookupService struct {
 	poolNameCache map[string]string
-	networkClient *upstream.ServiceClient
+	networkClient *gophercloud.ServiceClient
 
 	instanceNameCache map[string]string
-	serverClient      *upstream.ServiceClient
+	serverClient      *gophercloud.ServiceClient
 }
 
-func NewLookupService(provider *upstream.ProviderClient) LookupService {
-	networkClient, err := openstack.NewNetworkV2(provider, upstream.EndpointOpts{})
+func NewLookupService(provider *gophercloud.ProviderClient) LookupService {
+	networkClient, err := openstack.NewNetworkV2(provider, gophercloud.EndpointOpts{})
 	if err != nil {
 		panic(err)
 	}
 
-	serverClient, err := openstack.NewComputeV2(provider, upstream.EndpointOpts{})
+	serverClient, err := openstack.NewComputeV2(provider, gophercloud.EndpointOpts{})
 	if err != nil {
 		panic(err)
 	}
@@ -234,7 +234,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 		panic(err)
 	}
 
-	client, err := openstack.NewTelemetryV2(provider, upstream.EndpointOpts{})
+	client, err := openstack.NewTelemetryV2(provider, gophercloud.EndpointOpts{})
 	if err != nil {
 		panic(err)
 	}
@@ -433,7 +433,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 }
 
 type ceilometerCollector struct {
-	client      *upstream.ServiceClient
+	client      *gophercloud.ServiceClient
 	metrics     map[string]ceilometerMetric
 	metaMetrics map[string]*prometheus.Desc
 }
@@ -491,7 +491,7 @@ func registerDuration(start time.Time, stats *scrapeStats) {
 	stats.duration = time.Since(start)
 }
 
-func scrape(resourceLabel string, metric ceilometerMetric, client *upstream.ServiceClient, ch chan<- prometheus.Metric, result chan<- scrapeStats) {
+func scrape(resourceLabel string, metric ceilometerMetric, client *gophercloud.ServiceClient, ch chan<- prometheus.Metric, result chan<- scrapeStats) {
 	scraper := Scraper{
 		id:         "test",
 		lastScrape: time.Now().UTC().Add(time.Duration(-5) * time.Minute),
