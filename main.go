@@ -177,6 +177,93 @@ func NewCeilometerCollector() *ceilometerCollector {
 					}
 				},
 			},
+			"disk.allocation": {
+				desc: prometheus.NewDesc("openstack_ceilometer_disk_allocation", "Disk allocation", []string{"instance_id", "instance_name"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceId,
+						sample.ResourceMetadata["display_name"],
+					}
+				},
+			},
+			"disk.capacity": {
+				desc: prometheus.NewDesc("openstack_ceilometer_disk_capacity", "Disk capacity", []string{"instance_id", "instance_name", "device"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceId,
+						sample.ResourceMetadata["display_name"],
+						sample.ResourceMetadata["device"],
+					}
+				},
+			},
+			"disk.ephemeral.size": {
+				desc: prometheus.NewDesc("openstack_ceilometer_disk_ephemeral_size", "Size of ephemeral disk  ", []string{"instance_id", "instance_name"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceId,
+						sample.ResourceMetadata["display_name"],
+					}
+				},
+			},
+			"disk.read.bytes": {
+				desc: prometheus.NewDesc("openstack_ceilometer_disk_read_bytes", "Disk bytes read", []string{"instance_id", "instance_name", "device"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceId,
+						sample.ResourceMetadata["display_name"],
+						sample.ResourceMetadata["device"],
+					}
+				},
+			},
+			"disk.read.requests": {
+				desc: prometheus.NewDesc("openstack_ceilometer_disk_read_requests", "Disk read requests", []string{"instance_id", "instance_name", "device"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceId,
+						sample.ResourceMetadata["display_name"],
+						sample.ResourceMetadata["device"],
+					}
+				},
+			},
+			"disk.root.size": {
+				desc: prometheus.NewDesc("openstack_ceilometer_disk_root_size", "Root disk size", []string{"instance_id", "instance_name"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceId,
+						sample.ResourceMetadata["display_name"],
+					}
+				},
+			},
+			"disk.usage": {
+				desc: prometheus.NewDesc("openstack_ceilometer_disk_usage", "Disk usage", []string{"instance_id", "instance_name"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceId,
+						sample.ResourceMetadata["display_name"],
+					}
+				},
+			},
+			"disk.write.bytes": {
+				desc: prometheus.NewDesc("openstack_ceilometer_disk_write_bytes", "Disk written bytes", []string{"instance_id", "instance_name", "device"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceId,
+						sample.ResourceMetadata["display_name"],
+						sample.ResourceMetadata["device"],
+					}
+				},
+			},
+			"disk.write.requests": {
+				desc: prometheus.NewDesc("openstack_ceilometer_disk_write_requests", "Disk write requests", []string{"instance_id", "instance_name", "device"}, nil),
+				extractLabels: func(sample *meters.OldSample) []string {
+					return []string{
+						sample.ResourceId,
+						sample.ResourceMetadata["display_name"],
+						sample.ResourceMetadata["device"],
+					}
+				},
+			},
+
 			"memory.usage": {
 				desc: prometheus.NewDesc("openstack_ceilometer_memory_usage", "Memory utilization", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
