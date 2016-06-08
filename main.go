@@ -45,6 +45,10 @@ var rawLevel = flag.String("log-level", "info", "log level")
 var bindAddr = flag.String("bind-addr", ":9154", "bind address for the metrics server")
 var metricsPath = flag.String("metrics-path", "/metrics", "path to metrics endpoint")
 
+// limit-val
+// data age (5m?)
+// metrics-filter
+
 func main() {
 	log.SetLevel(logLevel)
 	prometheus.MustRegister(NewCeilometerCollector())
@@ -134,6 +138,14 @@ func (this *LookupService) lookupInstance(instanceId string) string {
 	return name
 }
 
+const (
+	namespace = "openstack_ceilometer"
+)
+
+func makeFQName(metric string) string {
+	return fmt.Sprintf("%s_%s", namespace, metric)
+}
+
 func NewCeilometerCollector() *ceilometerCollector {
 	opts, err := openstack.AuthOptionsFromEnv()
 	if err != nil {
@@ -155,7 +167,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 		metrics: map[string]ceilometerMetric{
 			// Hardware metrics
 			"cpu": {
-				desc: prometheus.NewDesc("openstack_ceilometer_cpu_nanoseconds", "Consumed CPU time (nanoseconds)", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("cpu_nanoseconds"), "Consumed CPU time (nanoseconds)", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -164,7 +176,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"cpu_util": {
-				desc: prometheus.NewDesc("openstack_ceilometer_cpu_percent", "CPU utilization (percent)", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("cpu_percent"), "CPU utilization (percent)", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -173,7 +185,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"disk.allocation": {
-				desc: prometheus.NewDesc("openstack_ceilometer_disk_allocation", "Disk allocation", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("disk_allocation"), "Disk allocation", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -182,7 +194,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"disk.capacity": {
-				desc: prometheus.NewDesc("openstack_ceilometer_disk_capacity", "Disk capacity", []string{"instance_id", "instance_name", "device"}, nil),
+				desc: prometheus.NewDesc(makeFQName("disk_capacity"), "Disk capacity", []string{"instance_id", "instance_name", "device"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -192,7 +204,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"disk.ephemeral.size": {
-				desc: prometheus.NewDesc("openstack_ceilometer_disk_ephemeral_size", "Size of ephemeral disk  ", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("disk_ephemeral_size"), "Size of ephemeral disk  ", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -201,7 +213,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"disk.read.bytes": {
-				desc: prometheus.NewDesc("openstack_ceilometer_disk_read_bytes", "Disk bytes read", []string{"instance_id", "instance_name", "device"}, nil),
+				desc: prometheus.NewDesc(makeFQName("disk_read_bytes"), "Disk bytes read", []string{"instance_id", "instance_name", "device"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -211,7 +223,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"disk.read.requests": {
-				desc: prometheus.NewDesc("openstack_ceilometer_disk_read_requests", "Disk read requests", []string{"instance_id", "instance_name", "device"}, nil),
+				desc: prometheus.NewDesc(makeFQName("disk_read_requests"), "Disk read requests", []string{"instance_id", "instance_name", "device"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -221,7 +233,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"disk.root.size": {
-				desc: prometheus.NewDesc("openstack_ceilometer_disk_root_size", "Root disk size", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("disk_root_size"), "Root disk size", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -230,7 +242,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"disk.usage": {
-				desc: prometheus.NewDesc("openstack_ceilometer_disk_usage", "Disk usage", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("disk_usage"), "Disk usage", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -239,7 +251,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"disk.write.bytes": {
-				desc: prometheus.NewDesc("openstack_ceilometer_disk_write_bytes", "Disk written bytes", []string{"instance_id", "instance_name", "device"}, nil),
+				desc: prometheus.NewDesc(makeFQName("disk_write_bytes"), "Disk written bytes", []string{"instance_id", "instance_name", "device"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -249,7 +261,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"disk.write.requests": {
-				desc: prometheus.NewDesc("openstack_ceilometer_disk_write_requests", "Disk write requests", []string{"instance_id", "instance_name", "device"}, nil),
+				desc: prometheus.NewDesc(makeFQName("disk_write_requests"), "Disk write requests", []string{"instance_id", "instance_name", "device"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -260,7 +272,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 			},
 
 			"memory.usage": {
-				desc: prometheus.NewDesc("openstack_ceilometer_memory_usage", "Memory utilization", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("memory_usage"), "Memory utilization", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -269,7 +281,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"memory": {
-				desc: prometheus.NewDesc("openstack_ceilometer_memory", "Memory allocation", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("memory"), "Memory allocation", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -278,7 +290,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"memory.resident": {
-				desc: prometheus.NewDesc("openstack_ceilometer_memory_resident", "Resident memory utilization", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("memory_resident"), "Resident memory utilization", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -287,7 +299,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.incoming.bytes": {
-				desc: prometheus.NewDesc("openstack_ceilometer_incoming_bytes", "Instance incoming network (bytes)", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("incoming_bytes"), "Instance incoming network (bytes)", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceMetadata["instance_id"],
@@ -296,7 +308,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.incoming.packets": {
-				desc: prometheus.NewDesc("openstack_ceilometer_incoming_packets", "Instance incoming network (packets)", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("incoming_packets"), "Instance incoming network (packets)", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceMetadata["instance_id"],
@@ -305,7 +317,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.outgoing.bytes": {
-				desc: prometheus.NewDesc("openstack_ceilometer_outgoing_bytes", "Instance outgoing network (bytes)", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("outgoing_bytes"), "Instance outgoing network (bytes)", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceMetadata["instance_id"],
@@ -314,7 +326,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.outgoing.packets": {
-				desc: prometheus.NewDesc("openstack_ceilometer_outgoing_packets", "Instance outgoing network (packets)", []string{"instance_id", "instance_name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("outgoing_packets"), "Instance outgoing network (packets)", []string{"instance_id", "instance_name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceMetadata["instance_id"],
@@ -324,7 +336,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 			},
 			// Network
 			"network.services.firewall.policy": {
-				desc: prometheus.NewDesc("openstack_ceilometer_firewall_policy", "Firewall policy", []string{"name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("firewall_policy"), "Firewall policy", []string{"name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceMetadata["name"],
@@ -332,7 +344,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.services.lb.vip": {
-				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool", "Load balancer pool", []string{"name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool"), "Load balancer pool", []string{"name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceMetadata["name"],
@@ -340,7 +352,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.services.lb.pool": {
-				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_vip", "Load balancer virtual IP", []string{"name"}, nil),
+				desc: prometheus.NewDesc(makeFQName("loadbalancer_vip"), "Load balancer virtual IP", []string{"name"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceMetadata["name"],
@@ -348,7 +360,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.services.lb.member": {
-				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_member", "Load balancer pool member", []string{"member", "status", "pool"}, nil),
+				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_member"), "Load balancer pool member", []string{"member", "status", "pool"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						fmt.Sprintf("%s:%s", sample.ResourceMetadata["address"], sample.ResourceMetadata["protocol_port"]),
@@ -358,7 +370,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.services.lb.incoming.bytes": {
-				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_bytes_in", "Load balancer pool bytes-in", []string{"pool"}, nil),
+				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_bytes_in"), "Load balancer pool bytes-in", []string{"pool"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						lookupSvc.lookupPool(sample.ResourceId),
@@ -366,7 +378,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.services.lb.outgoing.bytes": {
-				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_bytes_out", "Load balancer pool bytes-out", []string{"pool"}, nil),
+				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_bytes_out"), "Load balancer pool bytes-out", []string{"pool"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						lookupSvc.lookupPool(sample.ResourceId),
@@ -374,7 +386,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.services.lb.active.connections": {
-				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_active_connections", "Load balancer pool active connections", []string{"pool"}, nil),
+				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_active_connections"), "Load balancer pool active connections", []string{"pool"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						lookupSvc.lookupPool(sample.ResourceId),
@@ -382,7 +394,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"network.services.lb.total.connections": {
-				desc: prometheus.NewDesc("openstack_ceilometer_loadbalancer_pool_total_connections", "Load balancer pool total connections", []string{"pool"}, nil),
+				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_total_connections"), "Load balancer pool total connections", []string{"pool"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						lookupSvc.lookupPool(sample.ResourceId),
@@ -391,7 +403,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 			},
 			// Swift
 			"storage.containers.objects": {
-				desc: prometheus.NewDesc("openstack_ceilometer_swift_objects", "Swift container objects", []string{"container_id"}, nil),
+				desc: prometheus.NewDesc(makeFQName("swift_objects"), "Swift container objects", []string{"container_id"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						strings.SplitN(sample.ResourceId, "/", 2)[1],
@@ -399,7 +411,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 				},
 			},
 			"storage.containers.objects.size": {
-				desc: prometheus.NewDesc("openstack_ceilometer_swift_objects_size", "Swift container size (bytes)", []string{"container_id"}, nil),
+				desc: prometheus.NewDesc(makeFQName("swift_objects_size"), "Swift container size (bytes)", []string{"container_id"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						strings.SplitN(sample.ResourceId, "/", 2)[1],
@@ -408,7 +420,7 @@ func NewCeilometerCollector() *ceilometerCollector {
 			},
 			// Usage
 			"instance": {
-				desc: prometheus.NewDesc("openstack_ceilometer_instance", "Instances", []string{"instance_id", "instance_name", "flavor"}, nil),
+				desc: prometheus.NewDesc(makeFQName("instance"), "Instances", []string{"instance_id", "instance_name", "flavor"}, nil),
 				extractLabels: func(sample *meters.OldSample) []string {
 					return []string{
 						sample.ResourceId,
@@ -419,11 +431,11 @@ func NewCeilometerCollector() *ceilometerCollector {
 			},
 		},
 		metaMetrics: map[string]*prometheus.Desc{
-			"scrapeSuccess":    prometheus.NewDesc("openstack_ceilometer_metric_scrape_success", "Indicates if the metric was successfully scraped", []string{"metric"}, nil),
-			"scrapeDuration":   prometheus.NewDesc("openstack_ceilometer_metric_scrape_duration_ns", "The time taken to scrape the metric", []string{"metric"}, nil),
-			"scrapeResultSize": prometheus.NewDesc("openstack_ceilometer_metric_scrape_result_size", "Number of results returned by the metric query", []string{"metric"}, nil),
+			"scrapeSuccess":    prometheus.NewDesc(makeFQName("metric_scrape_success"), "Indicates if the metric was successfully scraped", []string{"metric"}, nil),
+			"scrapeDuration":   prometheus.NewDesc(makeFQName("metric_scrape_duration_ns"), "The time taken to scrape the metric", []string{"metric"}, nil),
+			"scrapeResultSize": prometheus.NewDesc(makeFQName("metric_scrape_result_size"), "Number of results returned by the metric query", []string{"metric"}, nil),
 
-			"totalScrapeDuration": prometheus.NewDesc("openstack_ceilometer_total_scrape_duration_ns", "Time taken for entire scrape", nil, nil),
+			"totalScrapeDuration": prometheus.NewDesc(makeFQName("total_scrape_duration_ns"), "Time taken for entire scrape", nil, nil),
 		},
 		client: client,
 	}
