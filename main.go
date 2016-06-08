@@ -63,11 +63,6 @@ func main() {
 	log.Fatal(http.ListenAndServe(*bindAddr, nil))
 }
 
-type Scraper struct {
-	id         string
-	lastScrape time.Time
-}
-
 type LookupService struct {
 	poolNameCache map[string]string
 	networkClient *gophercloud.ServiceClient
@@ -494,10 +489,7 @@ func registerDuration(start time.Time, stats *scrapeStats) {
 }
 
 func scrape(resourceLabel string, metric ceilometerMetric, client *gophercloud.ServiceClient, ch chan<- prometheus.Metric, result chan<- scrapeStats) {
-	scraper := Scraper{
-		id:         "test",
-		lastScrape: time.Now().UTC().Add(time.Duration(-5) * time.Minute),
-	}
+	scrapeMaxAge := time.Now().UTC().Add(time.Duration(-5) * time.Minute) // TODO: Parameterize
 	t := time.Now()
 	stats := scrapeStats{resourceLabel: resourceLabel}
 	defer sendStats(result, &stats)
@@ -507,14 +499,14 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *gophercloud.S
 	query := meters.ShowOpts{
 		QueryField: "timestamp",
 		QueryOp:    "gt",
-		QueryValue: scraper.lastScrape.Format("2006-01-02T15:04:05"),
+		QueryValue: scrapeMaxAge.Format("2006-01-02T15:04:05"),
 		Limit:      limit,
 	}
 	log.Debugf("Querying for %v: %v", resourceLabel, query)
 	results := meters.Show(client, resourceLabel, query)
 	data, err := results.Extract()
 	if err != nil {
-		log.Warnf("Failed to scrape Ceilometer resource %q for client %v", resourceLabel, scraper.id)
+		log.Warnf("Failed to scrape Ceilometer resource %q", resourceLabel)
 		return
 	}
 	if len(data) == 0 {
