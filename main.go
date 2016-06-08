@@ -41,6 +41,7 @@ func init() {
 	logLevel = parsedLevel
 
 	enabledMetrics = strings.Split(*rawEnabledMetrics, ",")
+	disabledMetrics = strings.Split(*rawDisabledMetrics, ",")
 }
 
 const (
@@ -49,15 +50,31 @@ const (
 )
 
 var (
-	logLevel          = log.InfoLevel
-	rawLevel          = flag.String("log-level", "info", "log level")
-	bindAddr          = flag.String("bind-addr", ":9154", "bind address for the metrics server")
-	metricsPath       = flag.String("metrics-path", "/metrics", "path to metrics endpoint")
-	maxResults        = flag.Int("max-results", 100, "maximum number of results to fetch for any metric")
-	maxMetricAge      = flag.Duration("max-metric-age", 5*time.Minute, "maximum age of metrics to retrieve")
-	enabledMetrics    []string
-	rawEnabledMetrics = flag.String("enabled-metrics", defaultEnabledMetrics, "comma-separated list of metrics to enable (supports globbing)")
+	logLevel           = log.InfoLevel
+	rawLevel           = flag.String("log-level", "info", "log level")
+	bindAddr           = flag.String("bind-addr", ":9154", "bind address for the metrics server")
+	metricsPath        = flag.String("metrics-path", "/metrics", "path to metrics endpoint")
+	maxResults         = flag.Int("max-results", 100, "maximum number of results to fetch for any metric")
+	maxMetricAge       = flag.Duration("max-metric-age", 5*time.Minute, "maximum age of metrics to retrieve")
+	enabledMetrics     []string
+	rawEnabledMetrics  = flag.String("enabled-metrics", defaultEnabledMetrics, "comma-separated list of metrics to enable (supports globbing)")
+	disabledMetrics    []string
+	rawDisabledMetrics = flag.String("disabled-metrics", "", "comma-separated list of metrics to disable (supports globbing)")
 )
+
+func shouldUseMetric(metric string) bool {
+	for _, enabled := range enabledMetrics {
+		if glob.Glob(enabled, metric) {
+			for _, disabled := range disabledMetrics {
+				if glob.Glob(disabled, metric) {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	return false
+}
 
 func main() {
 	log.SetLevel(logLevel)
@@ -437,10 +454,8 @@ func NewCeilometerCollector() *ceilometerCollector {
 	}
 	filteredMetrics := make(map[string]ceilometerMetric)
 	for name, metric := range allMetrics {
-		for _, enabledMetric := range enabledMetrics {
-			if glob.Glob(enabledMetric, name) {
-				filteredMetrics[name] = metric
-			}
+		if shouldUseMetric(name) {
+			filteredMetrics[name] = metric
 		}
 	}
 
