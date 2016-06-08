@@ -16,11 +16,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/ryanuber/go-glob"
 )
 
 /*
   TODOs:
-  - Flags
+  - Vendor
   - Split metric types (HW/Resources/...) (?)
   - Support for meter/foo/statistics for some types?
   - Multiple scrapers
@@ -38,16 +39,25 @@ func init() {
 		log.Fatal(err)
 	}
 	logLevel = parsedLevel
+
+	enabledMetrics = strings.Split(*rawEnabledMetrics, ",")
 }
 
-var logLevel log.Level = log.InfoLevel
-var rawLevel = flag.String("log-level", "info", "log level")
-var bindAddr = flag.String("bind-addr", ":9154", "bind address for the metrics server")
-var metricsPath = flag.String("metrics-path", "/metrics", "path to metrics endpoint")
+const (
+	namespace             = "openstack_ceilometer"
+	defaultEnabledMetrics = "*"
+)
 
-// limit-val
-// data age (5m?)
-// metrics-filter
+var (
+	logLevel          = log.InfoLevel
+	rawLevel          = flag.String("log-level", "info", "log level")
+	bindAddr          = flag.String("bind-addr", ":9154", "bind address for the metrics server")
+	metricsPath       = flag.String("metrics-path", "/metrics", "path to metrics endpoint")
+	maxResults        = flag.Int("max-results", 100, "maximum number of results to fetch for any metric")
+	maxMetricAge      = flag.Duration("max-metric-age", 5*time.Minute, "maximum age of metrics to retrieve")
+	enabledMetrics    []string
+	rawEnabledMetrics = flag.String("enabled-metrics", defaultEnabledMetrics, "comma-separated list of metrics to enable (supports globbing)")
+)
 
 func main() {
 	log.SetLevel(logLevel)
@@ -138,10 +148,6 @@ func (this *LookupService) lookupInstance(instanceId string) string {
 	return name
 }
 
-const (
-	namespace = "openstack_ceilometer"
-)
-
 func makeFQName(metric string) string {
 	return fmt.Sprintf("%s_%s", namespace, metric)
 }
@@ -163,273 +169,283 @@ func NewCeilometerCollector() *ceilometerCollector {
 
 	lookupSvc := NewLookupService(provider)
 
-	return &ceilometerCollector{
-		metrics: map[string]ceilometerMetric{
-			// Hardware metrics
-			"cpu": {
-				desc: prometheus.NewDesc(makeFQName("cpu_nanoseconds"), "Consumed CPU time (nanoseconds)", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-					}
-				},
-			},
-			"cpu_util": {
-				desc: prometheus.NewDesc(makeFQName("cpu_percent"), "CPU utilization (percent)", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-					}
-				},
-			},
-			"disk.allocation": {
-				desc: prometheus.NewDesc(makeFQName("disk_allocation"), "Disk allocation", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-					}
-				},
-			},
-			"disk.capacity": {
-				desc: prometheus.NewDesc(makeFQName("disk_capacity"), "Disk capacity", []string{"instance_id", "instance_name", "device"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-						sample.ResourceMetadata["device"],
-					}
-				},
-			},
-			"disk.ephemeral.size": {
-				desc: prometheus.NewDesc(makeFQName("disk_ephemeral_size"), "Size of ephemeral disk  ", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-					}
-				},
-			},
-			"disk.read.bytes": {
-				desc: prometheus.NewDesc(makeFQName("disk_read_bytes"), "Disk bytes read", []string{"instance_id", "instance_name", "device"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-						sample.ResourceMetadata["device"],
-					}
-				},
-			},
-			"disk.read.requests": {
-				desc: prometheus.NewDesc(makeFQName("disk_read_requests"), "Disk read requests", []string{"instance_id", "instance_name", "device"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-						sample.ResourceMetadata["device"],
-					}
-				},
-			},
-			"disk.root.size": {
-				desc: prometheus.NewDesc(makeFQName("disk_root_size"), "Root disk size", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-					}
-				},
-			},
-			"disk.usage": {
-				desc: prometheus.NewDesc(makeFQName("disk_usage"), "Disk usage", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-					}
-				},
-			},
-			"disk.write.bytes": {
-				desc: prometheus.NewDesc(makeFQName("disk_write_bytes"), "Disk written bytes", []string{"instance_id", "instance_name", "device"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-						sample.ResourceMetadata["device"],
-					}
-				},
-			},
-			"disk.write.requests": {
-				desc: prometheus.NewDesc(makeFQName("disk_write_requests"), "Disk write requests", []string{"instance_id", "instance_name", "device"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-						sample.ResourceMetadata["device"],
-					}
-				},
-			},
-
-			"memory.usage": {
-				desc: prometheus.NewDesc(makeFQName("memory_usage"), "Memory utilization", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-					}
-				},
-			},
-			"memory": {
-				desc: prometheus.NewDesc(makeFQName("memory"), "Memory allocation", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-					}
-				},
-			},
-			"memory.resident": {
-				desc: prometheus.NewDesc(makeFQName("memory_resident"), "Resident memory utilization", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-					}
-				},
-			},
-			"network.incoming.bytes": {
-				desc: prometheus.NewDesc(makeFQName("incoming_bytes"), "Instance incoming network (bytes)", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceMetadata["instance_id"],
-						lookupSvc.lookupInstance(sample.ResourceMetadata["instance_id"]),
-					}
-				},
-			},
-			"network.incoming.packets": {
-				desc: prometheus.NewDesc(makeFQName("incoming_packets"), "Instance incoming network (packets)", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceMetadata["instance_id"],
-						lookupSvc.lookupInstance(sample.ResourceMetadata["instance_id"]),
-					}
-				},
-			},
-			"network.outgoing.bytes": {
-				desc: prometheus.NewDesc(makeFQName("outgoing_bytes"), "Instance outgoing network (bytes)", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceMetadata["instance_id"],
-						lookupSvc.lookupInstance(sample.ResourceMetadata["instance_id"]),
-					}
-				},
-			},
-			"network.outgoing.packets": {
-				desc: prometheus.NewDesc(makeFQName("outgoing_packets"), "Instance outgoing network (packets)", []string{"instance_id", "instance_name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceMetadata["instance_id"],
-						lookupSvc.lookupInstance(sample.ResourceMetadata["instance_id"]),
-					}
-				},
-			},
-			// Network
-			"network.services.firewall.policy": {
-				desc: prometheus.NewDesc(makeFQName("firewall_policy"), "Firewall policy", []string{"name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceMetadata["name"],
-					}
-				},
-			},
-			"network.services.lb.vip": {
-				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool"), "Load balancer pool", []string{"name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceMetadata["name"],
-					}
-				},
-			},
-			"network.services.lb.pool": {
-				desc: prometheus.NewDesc(makeFQName("loadbalancer_vip"), "Load balancer virtual IP", []string{"name"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceMetadata["name"],
-					}
-				},
-			},
-			"network.services.lb.member": {
-				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_member"), "Load balancer pool member", []string{"member", "status", "pool"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						fmt.Sprintf("%s:%s", sample.ResourceMetadata["address"], sample.ResourceMetadata["protocol_port"]),
-						sample.ResourceMetadata["status"],
-						lookupSvc.lookupPool(sample.ResourceMetadata["pool_id"]),
-					}
-				},
-			},
-			"network.services.lb.incoming.bytes": {
-				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_bytes_in"), "Load balancer pool bytes-in", []string{"pool"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						lookupSvc.lookupPool(sample.ResourceId),
-					}
-				},
-			},
-			"network.services.lb.outgoing.bytes": {
-				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_bytes_out"), "Load balancer pool bytes-out", []string{"pool"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						lookupSvc.lookupPool(sample.ResourceId),
-					}
-				},
-			},
-			"network.services.lb.active.connections": {
-				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_active_connections"), "Load balancer pool active connections", []string{"pool"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						lookupSvc.lookupPool(sample.ResourceId),
-					}
-				},
-			},
-			"network.services.lb.total.connections": {
-				desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_total_connections"), "Load balancer pool total connections", []string{"pool"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						lookupSvc.lookupPool(sample.ResourceId),
-					}
-				},
-			},
-			// Swift
-			"storage.containers.objects": {
-				desc: prometheus.NewDesc(makeFQName("swift_objects"), "Swift container objects", []string{"container_id"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						strings.SplitN(sample.ResourceId, "/", 2)[1],
-					}
-				},
-			},
-			"storage.containers.objects.size": {
-				desc: prometheus.NewDesc(makeFQName("swift_objects_size"), "Swift container size (bytes)", []string{"container_id"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						strings.SplitN(sample.ResourceId, "/", 2)[1],
-					}
-				},
-			},
-			// Usage
-			"instance": {
-				desc: prometheus.NewDesc(makeFQName("instance"), "Instances", []string{"instance_id", "instance_name", "flavor"}, nil),
-				extractLabels: func(sample *meters.OldSample) []string {
-					return []string{
-						sample.ResourceId,
-						sample.ResourceMetadata["display_name"],
-						sample.ResourceMetadata["flavor.name"],
-					}
-				},
+	allMetrics := map[string]ceilometerMetric{
+		// Hardware metrics
+		"cpu": {
+			desc: prometheus.NewDesc(makeFQName("cpu_nanoseconds"), "Consumed CPU time (nanoseconds)", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+				}
 			},
 		},
+		"cpu_util": {
+			desc: prometheus.NewDesc(makeFQName("cpu_percent"), "CPU utilization (percent)", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+				}
+			},
+		},
+		"disk.allocation": {
+			desc: prometheus.NewDesc(makeFQName("disk_allocation"), "Disk allocation", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+				}
+			},
+		},
+		"disk.capacity": {
+			desc: prometheus.NewDesc(makeFQName("disk_capacity"), "Disk capacity", []string{"instance_id", "instance_name", "device"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+					sample.ResourceMetadata["device"],
+				}
+			},
+		},
+		"disk.ephemeral.size": {
+			desc: prometheus.NewDesc(makeFQName("disk_ephemeral_size"), "Size of ephemeral disk  ", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+				}
+			},
+		},
+		"disk.read.bytes": {
+			desc: prometheus.NewDesc(makeFQName("disk_read_bytes"), "Disk bytes read", []string{"instance_id", "instance_name", "device"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+					sample.ResourceMetadata["device"],
+				}
+			},
+		},
+		"disk.read.requests": {
+			desc: prometheus.NewDesc(makeFQName("disk_read_requests"), "Disk read requests", []string{"instance_id", "instance_name", "device"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+					sample.ResourceMetadata["device"],
+				}
+			},
+		},
+		"disk.root.size": {
+			desc: prometheus.NewDesc(makeFQName("disk_root_size"), "Root disk size", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+				}
+			},
+		},
+		"disk.usage": {
+			desc: prometheus.NewDesc(makeFQName("disk_usage"), "Disk usage", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+				}
+			},
+		},
+		"disk.write.bytes": {
+			desc: prometheus.NewDesc(makeFQName("disk_write_bytes"), "Disk written bytes", []string{"instance_id", "instance_name", "device"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+					sample.ResourceMetadata["device"],
+				}
+			},
+		},
+		"disk.write.requests": {
+			desc: prometheus.NewDesc(makeFQName("disk_write_requests"), "Disk write requests", []string{"instance_id", "instance_name", "device"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+					sample.ResourceMetadata["device"],
+				}
+			},
+		},
+
+		"memory.usage": {
+			desc: prometheus.NewDesc(makeFQName("memory_usage"), "Memory utilization", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+				}
+			},
+		},
+		"memory": {
+			desc: prometheus.NewDesc(makeFQName("memory"), "Memory allocation", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+				}
+			},
+		},
+		"memory.resident": {
+			desc: prometheus.NewDesc(makeFQName("memory_resident"), "Resident memory utilization", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+				}
+			},
+		},
+		"network.incoming.bytes": {
+			desc: prometheus.NewDesc(makeFQName("incoming_bytes"), "Instance incoming network (bytes)", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceMetadata["instance_id"],
+					lookupSvc.lookupInstance(sample.ResourceMetadata["instance_id"]),
+				}
+			},
+		},
+		"network.incoming.packets": {
+			desc: prometheus.NewDesc(makeFQName("incoming_packets"), "Instance incoming network (packets)", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceMetadata["instance_id"],
+					lookupSvc.lookupInstance(sample.ResourceMetadata["instance_id"]),
+				}
+			},
+		},
+		"network.outgoing.bytes": {
+			desc: prometheus.NewDesc(makeFQName("outgoing_bytes"), "Instance outgoing network (bytes)", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceMetadata["instance_id"],
+					lookupSvc.lookupInstance(sample.ResourceMetadata["instance_id"]),
+				}
+			},
+		},
+		"network.outgoing.packets": {
+			desc: prometheus.NewDesc(makeFQName("outgoing_packets"), "Instance outgoing network (packets)", []string{"instance_id", "instance_name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceMetadata["instance_id"],
+					lookupSvc.lookupInstance(sample.ResourceMetadata["instance_id"]),
+				}
+			},
+		},
+		// Network
+		"network.services.firewall.policy": {
+			desc: prometheus.NewDesc(makeFQName("firewall_policy"), "Firewall policy", []string{"name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceMetadata["name"],
+				}
+			},
+		},
+		"network.services.lb.vip": {
+			desc: prometheus.NewDesc(makeFQName("loadbalancer_pool"), "Load balancer pool", []string{"name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceMetadata["name"],
+				}
+			},
+		},
+		"network.services.lb.pool": {
+			desc: prometheus.NewDesc(makeFQName("loadbalancer_vip"), "Load balancer virtual IP", []string{"name"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceMetadata["name"],
+				}
+			},
+		},
+		"network.services.lb.member": {
+			desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_member"), "Load balancer pool member", []string{"member", "status", "pool"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					fmt.Sprintf("%s:%s", sample.ResourceMetadata["address"], sample.ResourceMetadata["protocol_port"]),
+					sample.ResourceMetadata["status"],
+					lookupSvc.lookupPool(sample.ResourceMetadata["pool_id"]),
+				}
+			},
+		},
+		"network.services.lb.incoming.bytes": {
+			desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_bytes_in"), "Load balancer pool bytes-in", []string{"pool"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					lookupSvc.lookupPool(sample.ResourceId),
+				}
+			},
+		},
+		"network.services.lb.outgoing.bytes": {
+			desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_bytes_out"), "Load balancer pool bytes-out", []string{"pool"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					lookupSvc.lookupPool(sample.ResourceId),
+				}
+			},
+		},
+		"network.services.lb.active.connections": {
+			desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_active_connections"), "Load balancer pool active connections", []string{"pool"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					lookupSvc.lookupPool(sample.ResourceId),
+				}
+			},
+		},
+		"network.services.lb.total.connections": {
+			desc: prometheus.NewDesc(makeFQName("loadbalancer_pool_total_connections"), "Load balancer pool total connections", []string{"pool"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					lookupSvc.lookupPool(sample.ResourceId),
+				}
+			},
+		},
+		// Swift
+		"storage.containers.objects": {
+			desc: prometheus.NewDesc(makeFQName("swift_objects"), "Swift container objects", []string{"container_id"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					strings.SplitN(sample.ResourceId, "/", 2)[1],
+				}
+			},
+		},
+		"storage.containers.objects.size": {
+			desc: prometheus.NewDesc(makeFQName("swift_objects_size"), "Swift container size (bytes)", []string{"container_id"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					strings.SplitN(sample.ResourceId, "/", 2)[1],
+				}
+			},
+		},
+		// Usage
+		"instance": {
+			desc: prometheus.NewDesc(makeFQName("instance"), "Instances", []string{"instance_id", "instance_name", "flavor"}, nil),
+			extractLabels: func(sample *meters.OldSample) []string {
+				return []string{
+					sample.ResourceId,
+					sample.ResourceMetadata["display_name"],
+					sample.ResourceMetadata["flavor.name"],
+				}
+			},
+		},
+	}
+	filteredMetrics := make(map[string]ceilometerMetric)
+	for name, metric := range allMetrics {
+		for _, enabledMetric := range enabledMetrics {
+			if glob.Glob(enabledMetric, name) {
+				filteredMetrics[name] = metric
+			}
+		}
+	}
+
+	return &ceilometerCollector{
+		metrics: filteredMetrics,
 		metaMetrics: map[string]*prometheus.Desc{
 			"scrapeSuccess":    prometheus.NewDesc(makeFQName("metric_scrape_success"), "Indicates if the metric was successfully scraped", []string{"metric"}, nil),
 			"scrapeDuration":   prometheus.NewDesc(makeFQName("metric_scrape_duration_ns"), "The time taken to scrape the metric", []string{"metric"}, nil),
@@ -452,7 +468,7 @@ type ceilometerMetric struct {
 }
 
 func (c *ceilometerCollector) Describe(ch chan<- *prometheus.Desc) {
-	log.Debugf("Sending %d metrics descriptions", len(c.metrics))
+	log.Debugf("Sending %d metrics descriptions", len(c.metrics)+len(c.metaMetrics))
 	for _, metric := range c.metrics {
 		ch <- metric.desc
 	}
@@ -501,18 +517,16 @@ func registerDuration(start time.Time, stats *scrapeStats) {
 }
 
 func scrape(resourceLabel string, metric ceilometerMetric, client *gophercloud.ServiceClient, ch chan<- prometheus.Metric, result chan<- scrapeStats) {
-	scrapeMaxAge := time.Now().UTC().Add(time.Duration(-5) * time.Minute) // TODO: Parameterize
 	t := time.Now()
 	stats := scrapeStats{resourceLabel: resourceLabel}
 	defer sendStats(result, &stats)
 	defer registerDuration(t, &stats)
 
-	limit := 200 // TBD
 	query := meters.ShowOpts{
 		QueryField: "timestamp",
 		QueryOp:    "gt",
-		QueryValue: scrapeMaxAge.Format("2006-01-02T15:04:05"),
-		Limit:      limit,
+		QueryValue: time.Now().UTC().Add(-*maxMetricAge).Format("2006-01-02T15:04:05"),
+		Limit:      *maxResults,
 	}
 	log.Debugf("Querying for %v: %v", resourceLabel, query)
 	results := meters.Show(client, resourceLabel, query)
@@ -526,8 +540,8 @@ func scrape(resourceLabel string, metric ceilometerMetric, client *gophercloud.S
 		stats.success = true // The query itself was successful, even though no results were produced
 		return
 	}
-	if len(data) == limit {
-		log.Warnf("Query for %v returned max number of results (%d), data may be truncated", resourceLabel, limit)
+	if len(data) == *maxResults {
+		log.Warnf("Query for %v returned max number of results (%d), data may be truncated", resourceLabel, *maxResults)
 	}
 	initialLen := len(data)
 	data = deduplicate(data)
