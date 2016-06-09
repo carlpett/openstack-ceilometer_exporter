@@ -1,0 +1,134 @@
+{
+	"ImportPath": "github.com/carlpett/openstack-ceilometer_exporter",
+	"GoVersion": "go1.6",
+	"GodepVersion": "v62",
+	"Deps": [
+		{
+			"ImportPath": "github.com/DSpeichert/gophercloud/openstack",
+			"Comment": "v1.0.0-917-g7a746ac",
+			"Rev": "7a746acc5f900fedd711073f4128106cfbc08404"
+		},
+		{
+			"ImportPath": "github.com/DSpeichert/gophercloud/openstack/telemetry/v2/meters",
+			"Comment": "v1.0.0-917-g7a746ac",
+			"Rev": "7a746acc5f900fedd711073f4128106cfbc08404"
+		},
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.10.0-14-g081307d",
+			"Rev": "081307d9bc1364753142d5962fc1d795c742baaf"
+		},
+		{
+			"ImportPath": "github.com/beorn7/perks/quantile",
+			"Rev": "3ac7bf7a47d159a033b107610db8a1b6575507a4"
+		},
+		{
+			"ImportPath": "github.com/golang/protobuf/proto",
+			"Rev": "34a5f244f1c01cdfee8e60324258cfbb97a42aec"
+		},
+		{
+			"ImportPath": "github.com/matttproud/golang_protobuf_extensions/pbutil",
+			"Comment": "v1.0.0-2-gc12348c",
+			"Rev": "c12348ce28de40eed0136aa2b644d0ee0650e56c"
+		},
+		{
+			"ImportPath": "github.com/mitchellh/mapstructure",
+			"Rev": "281073eb9eb092240d33ef253c404f1cca550309"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_golang/prometheus",
+			"Comment": "0.7.0-74-g90c15b5",
+			"Rev": "90c15b5efa0dc32a7d259234e02ac9a99e6d3b82"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_model/go",
+			"Comment": "model-0.0.2-12-gfa8ad6f",
+			"Rev": "fa8ad6fec33561be4280a8f0514318c79d7f6cb6"
+		},
+		{
+			"ImportPath": "github.com/prometheus/common/expfmt",
+			"Rev": "dd586c1c5abb0be59e60f942c22af711a2008cb4"
+		},
+		{
+			"ImportPath": "github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg",
+			"Rev": "dd586c1c5abb0be59e60f942c22af711a2008cb4"
+		},
+		{
+			"ImportPath": "github.com/prometheus/common/model",
+			"Rev": "dd586c1c5abb0be59e60f942c22af711a2008cb4"
+		},
+		{
+			"ImportPath": "github.com/prometheus/procfs",
+			"Rev": "abf152e5f3e97f2fafac028d2cc06c1feb87ffa5"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud/openstack/compute/v2/flavors",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud/openstack/compute/v2/images",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud/openstack/compute/v2/servers",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud/openstack/identity/v2/tenants",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud/openstack/identity/v2/tokens",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud/openstack/identity/v3/tokens",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud/openstack/networking/v2/extensions/lbaas/pools",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud/openstack/utils",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud/pagination",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud/testhelper",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud/testhelper/client",
+			"Comment": "v1.0.0-884-gc54bbac",
+			"Rev": "c54bbac81d19eb4df3ad167764dbb6ff2e7194de"
+		},
+		{
+			"ImportPath": "github.com/ryanuber/go-glob",
+			"Comment": "v0.1",
+			"Rev": "572520ed46dbddaed19ea3d9541bdd0494163693"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "5eaf0df67e70d6997a9fe0ed24383fa1b01638d3"
+		}
+	]
+}

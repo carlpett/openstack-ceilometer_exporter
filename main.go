@@ -22,7 +22,6 @@ import (
 
 /*
   TODOs:
-  - Vendor
   - Split metric types (HW/Resources/...) (?)
   - Support for meter/foo/statistics for some types?
   - Multiple scrapers
