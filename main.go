@@ -12,6 +12,7 @@ import (
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack/compute/v2/servers"
 	"github.com/rackspace/gophercloud/openstack/networking/v2/extensions/lbaas/pools"
+	"github.com/rackspace/gophercloud/pagination"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -28,7 +29,6 @@ import (
   - Split to multiple files
   - Calculated metrics (eg count of rules in firewall policy)
   - Timeout?
-  - Pre-warm caches
 */
 
 func init() {
@@ -113,11 +113,41 @@ func NewLookupService(provider *gophercloud.ProviderClient) LookupService {
 		panic(err)
 	}
 
+	log.Debug("Populating guid lookup caches")
+
+	poolNameCache := make(map[string]string)
+	poolPager := pools.List(networkClient, pools.ListOpts{})
+	poolPager.EachPage(func(page pagination.Page) (bool, error) {
+		poolList, err := pools.ExtractPools(page)
+		if err != nil {
+			return false, err
+		}
+		for _, pool := range poolList {
+			poolNameCache[pool.ID] = pool.Name
+		}
+		return true, nil
+	})
+
+	serverNameCache := make(map[string]string)
+	serverPager := servers.List(serverClient, servers.ListOpts{})
+	serverPager.EachPage(func(page pagination.Page) (bool, error) {
+		serverList, err := servers.ExtractServers(page)
+		if err != nil {
+			return false, err
+		}
+		for _, server := range serverList {
+			serverNameCache[server.ID] = server.Name
+		}
+		return true, nil
+	})
+
+	log.Debugf("Finished populating caches. %d pools and %d instances prepared.", len(poolNameCache), len(serverNameCache))
+
 	return LookupService{
 		networkClient:     networkClient,
-		poolNameCache:     make(map[string]string),
+		poolNameCache:     poolNameCache,
 		serverClient:      serverClient,
-		instanceNameCache: make(map[string]string),
+		instanceNameCache: serverNameCache,
 	}
 }
 
