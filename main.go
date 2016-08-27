@@ -53,7 +53,7 @@ const (
 var (
 	logLevel           = log.InfoLevel
 	rawLevel           = flag.String("log-level", "info", "log level")
-	bindAddr           = flag.String("bind-addr", ":9154", "bind address for the metrics server")
+	bindAddr           = flag.String("bind-addr", ":9181", "bind address for the metrics server")
 	metricsPath        = flag.String("metrics-path", "/metrics", "path to metrics endpoint")
 	maxResults         = flag.Int("max-results", 100, "maximum number of results to fetch for any metric")
 	maxMetricAge       = flag.Duration("max-metric-age", 5*time.Minute, "maximum age of metrics to retrieve")

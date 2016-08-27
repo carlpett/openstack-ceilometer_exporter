@@ -7,7 +7,7 @@ This is a [Prometheus](prometheus.io) exporter that scrapes the Openstack Ceilom
 ## Flags
 | Name              | Description                                                    | Default  |
 |-------------------|----------------------------------------------------------------|----------|
-| -bind-addr        | bind address for the metrics server                            | :9154    |
+| -bind-addr        | bind address for the metrics server                            | :9181    |
 | -metrics-path     | path to metrics endpoint                                       | /metrics |
 | -disabled-metrics | comma-separated list of metrics to disable (supports globbing) |          |
 | -enabled-metrics  | comma-separated list of metrics to enable (supports globbing)  | *        |
